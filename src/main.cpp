@@ -20,7 +20,7 @@ void NTT_test() {
   momoko::base::ideal_lattice latt{512, 12289};
   std::vector<long> factors(512, 0);
   momoko::gaussian::CDT_sampler CDT{1.698644, 9.42, latt};
-  for (int i = 0; i < 100; ++i) {
+  for (int i = 0; i < 1000; ++i) {
 
     auto element1 = CDT.sample_lattice_element();
     auto element2 = CDT.sample_lattice_element();
@@ -99,7 +99,7 @@ void pke_test_and_benchmark(bool warmup = true) {
   for (long i = 0; i < 300; ++i) {
     auto r =
         pke2.encrypt_latt_element(latt.make_element({1, 1, 1, 0, 1, 1, 0, 1}));
-    //    auto result = pke.decrypt_latt_element(r);
+    //    auto result = pke2.decrypt_latt_element(r);
     //    std::cout << result << std::endl;
   }
   end = chrono::high_resolution_clock::now();
@@ -129,7 +129,7 @@ void NTT_benchmark() {
             << chrono::duration_cast<chrono::microseconds>(end - start).count()
             << std::endl;
   start = chrono::high_resolution_clock::now();
-  for (long i = 0; i < 150; ++i) {
+  for (long i = 0; i < 300; ++i) {
     auto r = pke_NTT_cache.encrypt_latt_element(
         latt.make_element({1, 1, 1, 0, 1, 1, 0, 1}));
   }
@@ -165,10 +165,10 @@ void latt_export_test() {
 }
 int main() {
   //  latt_export_test();
-  //    NTT_test();
+  //  NTT_test();
   //  momoko::base::ideal_lattice latt{512, 12289};
   //  momoko::gaussian::CDT_sampler CDT{1.698644, 9.42, latt};
-  //  auto element = latt.make_element_from_NTT({1, 1, 4, 5, 1, 4});
+  //  auto element = latt.make_element({1, 1, 4, 5, 1, 4});
   //  std::ofstream ofs{"out.element"};
   //  std::ofstream ofs_latt{"out.latt"};
   //  element.export_to_stream(ofs);

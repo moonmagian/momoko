@@ -45,7 +45,7 @@ momoko::base::ideal_lattice_element::operator*=(ideal_lattice_element &other) {
   auto ntt1 = NTT_CT();
   auto ntt2 = other.NTT_CT();
   for (size_t i = 0; i < ntt1.size(); ++i) {
-    ntt1[i] *= ntt2[i];
+    ntt1[i] = tools::mod_reduce(ntt1[i] * ntt2[i], q);
   }
   factors = latt.INTT_GS(ntt1);
   NTT_cache.value() = std::move(ntt1);
@@ -53,14 +53,15 @@ momoko::base::ideal_lattice_element::operator*=(ideal_lattice_element &other) {
 }
 
 momoko::base::ideal_lattice_element &
-momoko::base::ideal_lattice_element::operator*=(const ulong &other) {
+momoko::base::ideal_lattice_element::operator*=(
+    const tools::element_type_T &other) {
   for (size_t i = 0; i < factors.size(); ++i) {
-    factors[i] = (factors[i] * other) % q;
+    factors[i] = tools::mod_reduce(factors[i] * other, q);
   }
   if (NTT_cache.has_value()) {
     // Update the NTT cache at the same time.
     for (size_t i = 0; i < NTT_cache.value().size(); ++i) {
-      NTT_cache.value()[i] = (NTT_cache.value()[i] * other) % q;
+      NTT_cache.value()[i] = tools::mod_reduce(NTT_cache.value()[i] * other, q);
     }
   }
   return *this;
@@ -73,12 +74,12 @@ momoko::base::ideal_lattice_element::operator+=(
     factors.resize(other.factors.size(), 0);
   }
   for (size_t i = 0; i < other.factors.size(); ++i) {
-    factors[i] = (factors[i] + other.get_factor(i)) % q;
+    factors[i] = tools::mod_reduce(factors[i] + other.get_factor(i), q);
   }
   if (NTT_cache.has_value() && other.NTT_cache.has_value()) {
     for (size_t i = 0; i < NTT_cache->size(); ++i) {
-      NTT_cache.value()[i] =
-          (NTT_cache.value()[i] + other.NTT_cache.value()[i]) % q;
+      NTT_cache.value()[i] = tools::mod_reduce(
+          NTT_cache.value()[i] + other.NTT_cache.value()[i], q);
     }
   } else if (NTT_cache.has_value()) {
     NTT_cache.reset();
@@ -155,7 +156,7 @@ const std::vector<long> &momoko::base::ideal_lattice_element::NTT_CT() {
     for (ulong i = 0; i < m; ++i) {
       ulong j1 = 2 * i * t;
       ulong j2 = j1 + t - 1;
-      ulong S = phi_list[m + i];
+      tools::element_type_T S = phi_list[m + i];
       for (ulong j = j1; j <= j2; ++j) {
         long U = result[j];
         long V = result[j + t] * S;
@@ -181,12 +182,12 @@ momoko::base::operator*(ideal_lattice_element a, ideal_lattice_element &b) {
   return a;
 }
 momoko::base::ideal_lattice_element
-momoko::base::operator*(ulong b, ideal_lattice_element a) {
+momoko::base::operator*(tools::element_type_T b, ideal_lattice_element a) {
   a *= b;
   return a;
 }
 momoko::base::ideal_lattice_element
-momoko::base::operator*(ideal_lattice_element a, ulong b) {
+momoko::base::operator*(ideal_lattice_element a, tools::element_type_T b) {
   a *= b;
   return a;
 }
@@ -200,7 +201,7 @@ momoko::base::operator+(ideal_lattice_element a,
 momoko::base::ideal_lattice_element
 momoko::base::operator-(ideal_lattice_element a) {
   for (size_t i = 0; i < a.factors.size(); ++i) {
-    a.factors[i] = a.q - a.factors[i];
+    a.factors[i] = tools::mod_reduce(-a.factors[i], a.q);
   }
   a.NTT_cache.reset();
   return a;
@@ -220,11 +221,11 @@ momoko::base::SPM_product(ideal_lattice_element a,
     for (size_t j = 0; j < b.factors.size(); ++j) {
       if ((i + j) < a.n) {
         result[i + j] += (a.factors[i] * b.factors[j]);
-        result[i + j] %= a.q;
+        result[i + j] = tools::mod_reduce(result[i + j], a.q);
       } else {
         result[(i + j) % a.n] +=
             tools::mod_reduce(-a.factors[i] * b.factors[j], a.q);
-        result[(i + j) % a.n] %= a.q;
+        result[(i + j) % a.n] = tools::mod_reduce(result[(i + j) % a.n], a.q);
       }
     }
   }

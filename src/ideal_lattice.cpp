@@ -38,7 +38,7 @@ ideal_lattice::ideal_lattice(std::istream &is, bool use_NTT_cache)
   }
 }
 
-ulong ideal_lattice::get_2nth_root_of_unity() {
+tools::element_type_T ideal_lattice::get_2nth_root_of_unity() {
   // Use cached value.
   if (psi) {
     return psi.value();
@@ -67,6 +67,7 @@ ulong ideal_lattice::get_2nth_root_of_unity() {
     return 0;
   }
   // Cache the result.
+  res = tools::mod_reduce(res, q);
   psi = res;
   return res;
 }
@@ -156,46 +157,49 @@ void ideal_lattice::export_to_stream(std::ostream &os, bool include_psi_cache) {
   }
 }
 
-const std::vector<ulong> &ideal_lattice::get_psi_list() {
+const std::vector<tools::element_type_T> &ideal_lattice::get_psi_list() {
   // Use cached result.
   if (psi_list) {
     return psi_list.value();
   }
   psi_list.emplace(n);
-  ulong psi_base{get_2nth_root_of_unity()};
+  tools::element_type_T psi_base{get_2nth_root_of_unity()};
   psi_list.value()[0] = 1;
   // Calculate the list.
   for (size_t i = 1; i < psi_list->size(); ++i) {
-    psi_list.value()[i] = psi_list.value()[i - 1] * psi_base % q;
+    psi_list.value()[i] =
+        tools::mod_reduce(psi_list.value()[i - 1] * psi_base, q);
   }
   // Use bit reversed order (as required in CT and GS butterfly).
   tools::bitrevorder(psi_list.value());
   return psi_list.value();
 }
 
-const std::vector<ulong> &ideal_lattice::get_psi_inv_list() {
+const std::vector<tools::element_type_T> &ideal_lattice::get_psi_inv_list() {
   // Use cached result.
   if (psi_inv_list) {
     return psi_inv_list.value();
   }
   psi_inv_list.emplace(n);
-  ulong psi_inv_base{tools::mod_inv(get_2nth_root_of_unity(), q)};
+  tools::element_type_T psi_inv_base{
+      tools::mod_inv(get_2nth_root_of_unity(), q)};
   psi_inv_list.value()[0] = 1;
   // Calculate the list.
   for (size_t i = 1; i < psi_inv_list->size(); ++i) {
-    psi_inv_list.value()[i] = psi_inv_list.value()[i - 1] * psi_inv_base % q;
+    psi_inv_list.value()[i] =
+        tools::mod_reduce(psi_inv_list.value()[i - 1] * psi_inv_base, q);
   }
   // Use bit reversed order (as required in CT and GS butterfly).
   tools::bitrevorder(psi_inv_list.value());
   return psi_inv_list.value();
 }
 
-ulong ideal_lattice::getQ() const { return q; }
+unsigned long ideal_lattice::getQ() const { return q; }
 
 bool ideal_lattice::operator==(const ideal_lattice &other) const {
   return n == other.n && q == other.q;
 }
-ulong ideal_lattice::getN() const { return n; }
+unsigned long ideal_lattice::getN() const { return n; }
 
 } // namespace base
 } // namespace momoko

@@ -7,6 +7,7 @@
 namespace momoko::pks {
 class pke : public pksystem {
   private:
+  gaussian::gaussian_dist_sampler &sampler;
   std::optional<base::ideal_lattice_element> s;
   std::optional<base::ideal_lattice_element> a;
   std::optional<base::ideal_lattice_element> b;

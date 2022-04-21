@@ -3,7 +3,7 @@
 
 momoko::pks::pke::pke(base::ideal_lattice &latt,
                       gaussian::gaussian_dist_sampler &sampler)
-    : pksystem(latt, sampler) {}
+    : pksystem(latt), sampler{sampler} {}
 
 void momoko::pks::pke::generate_keys() {
 
@@ -90,9 +90,6 @@ momoko::base::ideal_lattice_element momoko::pks::pke::decrypt_latt_element(
   // Begin from last to resize only once.
   for (int i = n - 1; i >= 0; --i) {
     long bit = result.get_factor(i);
-    while (bit > q / 2) {
-      bit -= q;
-    }
     if (bit < 0) {
       bit = -bit;
     }

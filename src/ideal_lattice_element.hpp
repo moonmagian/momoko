@@ -4,9 +4,9 @@
 #include <iostream>
 #include <vector>
 #include <optional>
+#include "tools.hpp"
 namespace momoko::base {
 class ideal_lattice;
-using ulong = unsigned long;
 
 class ideal_lattice_element {
   private:
@@ -21,8 +21,8 @@ class ideal_lattice_element {
   std::vector<long> factors;
   bool use_NTT_cache = true;
   std::optional<std::vector<long>> NTT_cache;
-  const ulong q;
-  const ulong n;
+  const unsigned long q;
+  const unsigned long n;
   void normalize_factors();
   ideal_lattice_element(ideal_lattice &lattice,
                         const std::vector<long> &_factors = std::vector<long>{},
@@ -34,7 +34,7 @@ class ideal_lattice_element {
   ideal_lattice_element(const ideal_lattice_element &other) = default;
   ideal_lattice_element &operator=(const ideal_lattice_element &other);
   ideal_lattice_element &operator*=(ideal_lattice_element &other);
-  ideal_lattice_element &operator*=(const ulong &other);
+  ideal_lattice_element &operator*=(const momoko::tools::element_type_T &other);
   ideal_lattice_element &operator+=(const ideal_lattice_element &other);
   ideal_lattice_element &operator-=(const ideal_lattice_element &other);
   void export_to_stream(std::ostream &os) const;
@@ -45,8 +45,10 @@ class ideal_lattice_element {
 };
 ideal_lattice_element operator*(ideal_lattice_element a,
                                 ideal_lattice_element &b);
-ideal_lattice_element operator*(ideal_lattice_element a, ulong b);
-ideal_lattice_element operator*(ulong b, ideal_lattice_element a);
+ideal_lattice_element operator*(ideal_lattice_element a,
+                                tools::element_type_T b);
+ideal_lattice_element operator*(tools::element_type_T b,
+                                ideal_lattice_element a);
 ideal_lattice_element SPM_product(ideal_lattice_element a,
                                   const ideal_lattice_element &b);
 ideal_lattice_element operator+(ideal_lattice_element a,
