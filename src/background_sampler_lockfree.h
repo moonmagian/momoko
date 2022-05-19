@@ -5,12 +5,14 @@
 #include <stop_token>
 #include "gaussian_dist_sampler.hpp"
 #include "ideal_lattice_element.hpp"
+#include "lockfree_cache_queue.h"
 namespace momoko::gaussian {
 template <size_t N>
 class background_sampler_lockfree : public gaussian_dist_sampler {
   private:
   std::counting_semaphore<N> empty{N};
-  boost::lockfree::spsc_queue<long, boost::lockfree::capacity<N>> cache;
+  //  boost::lockfree::spsc_queue<long, boost::lockfree::capacity<N>> cache;
+  tools::lockfree_cache_queue<long, N> cache;
 
   gaussian_dist_sampler &sampler;
   std::stop_source stop;

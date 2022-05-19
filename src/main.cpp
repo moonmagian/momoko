@@ -7,7 +7,9 @@
 #include "background_sampler.h"
 #include "background_sampler_lockfree.h"
 #include "pke.h"
+#include "pke_blwe.h"
 #include "signature.h"
+#include "benchmark_counter.h"
 #include <cmath>
 #include <iostream>
 #include <map>
@@ -34,6 +36,7 @@ void NTT_test() {
 }
 void sampler_test(momoko::gaussian::gaussian_dist_sampler &sampler) {
   int times = 1000000;
+  //  int times = 1000;
   double mean = 0;
   double SD = 0;
   std::map<long, ulong> m;
@@ -73,6 +76,28 @@ void bit_matrix_test() {
   mat.complete();
   std::cout << mat << std::endl;
 }
+void pke_benchmark() {
+  momoko::base::ideal_lattice latt{512, 12289};
+  momoko::gaussian::CDT_sampler CDT{4.85, 9.42, latt};
+  momoko::gaussian::background_sampler_lockfree<300000> bg{CDT, latt};
+  momoko::pks::pke pke(latt, bg);
+  pke.generate_keys();
+  long result = start_benchmark(
+      [&pke, &latt](std::stop_token token, std::promise<long> promise) {
+        long result{0};
+        while (!token.stop_requested()) {
+          pke.encrypt_latt_element(latt.make_element({1, 1, 1, 0, 1, 1, 0, 1}));
+          //          pke.decrypt_latt_element(
+          //              std::make_pair(latt.make_element({1, 1, 1, 0, 1, 1, 0,
+          //              1}),
+          //                             latt.make_element({1, 1, 0})));
+          result += 1;
+        }
+        promise.set_value(result);
+      },
+      10);
+  std::cout << result << std::endl;
+}
 void pke_test_and_benchmark(bool warmup = true) {
   momoko::base::ideal_lattice latt{512, 12289};
   momoko::gaussian::CDT_sampler CDT{4.85, 9.42, latt};
@@ -80,7 +105,8 @@ void pke_test_and_benchmark(bool warmup = true) {
   //  momoko::gaussian::background_sampler_lockfree<50000> bg{CDT, latt};
   momoko::gaussian::background_sampler_lockfree<300000> bg{CDT, latt};
   momoko::pks::pke pke(latt, bg);
-  momoko::pks::pke pke2(latt, CDT);
+  //  momoko::pks::pke pke2(latt, CDT);
+  momoko::pks::pke_blwe pke2(latt);
   pke.generate_keys();
   pke2.generate_keys();
   if (warmup) {
@@ -144,7 +170,7 @@ void sign_test() {
   momoko::pks::signature sign{latt, CDT};
   auto message(latt.make_element({1, 1, 1, 0, 1, 1, 0, 1}));
   auto sig = sign.sign_latt_element(message);
-  std::cout << sign.verify_latt_element(message, sig) << std::endl;
+  //  std::cout << sign.verify_latt_element(message, sig) << std::endl;
 }
 void latt_export_test() {
   std::stringstream ss;
@@ -166,15 +192,15 @@ void latt_export_test() {
 int main() {
   //  latt_export_test();
   //  NTT_test();
-  //  momoko::base::ideal_lattice latt{512, 12289};
-  //  momoko::gaussian::CDT_sampler CDT{1.698644, 9.42, latt};
+  momoko::base::ideal_lattice latt{512, 12289};
+  momoko::gaussian::CDT_sampler CDT{1.698644, 9.42, latt};
   //  auto element = latt.make_element({1, 1, 4, 5, 1, 4});
   //  std::ofstream ofs{"out.element"};
   //  std::ofstream ofs_latt{"out.latt"};
   //  element.export_to_stream(ofs);
   //  latt.export_to_stream(ofs_latt, true);
-  //  momoko::gaussian::background_sampler_lockfree<10000> bg{CDT, latt};
-  //  sampler_test(bg);
+  momoko::gaussian::background_sampler_lockfree<10000> bg{CDT, latt};
+  sampler_test(bg);
   //  momoko::gaussian::bernoulli_sampler bernoulli{2, latt};
   //  momoko::gaussian::knuth_yao_sampler knuth_yao{1.698644, 9.42, latt};
   //  std::cout << "Sampler shape test:" << std::endl;
@@ -190,9 +216,10 @@ int main() {
   //  std::cout << std::endl;
   //  std::cout << "background sampling test (without warm up):" << std::endl;
   //  pke_test_and_benchmark(false);
+  //  pke_benchmark();
   //  std::cout << std::endl;
   //  std::cout << "NTT cache and lazy modular test:" << std::endl;
   //  NTT_benchmark();
-  sign_test();
+  //  sign_test();
   return 0;
 }

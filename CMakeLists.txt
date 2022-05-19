@@ -20,17 +20,18 @@ add_executable(momoko
   src/bernoulli_sampler.cpp
   src/CDT_sampler.hpp
   src/CDT_sampler.cpp
-  src/descrete_gaussian_calculator.hpp
-  src/descrete_gaussian_calculator.cpp
   src/bit_matrix.hpp
   src/bit_matrix.cpp
   src/knuth_yao_sampler.hpp
   src/knuth_yao_sampler.cpp
   src/pksystem.hpp src/pksystem.cpp
   src/pke.h src/pke.cpp
+  src/pke_blwe.h src/pke_blwe.cpp
   src/background_sampler.h src/background_sampler.cpp
   src/background_sampler_lockfree.h src/background_sampler_lockfree.cpp
   src/signature.h src/signature.cpp
+  src/benchmark_counter.h src/benchmark_counter.cpp
+  src/lockfree_cache_queue.h src/lockfree_cache_queue.cpp
   )
 
 target_include_directories(momoko PUBLIC ${Boost_INCLUDE_DIRS})

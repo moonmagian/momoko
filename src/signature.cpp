@@ -50,15 +50,15 @@ momoko::pks::signature::sign_latt_element(
 bool momoko::pks::signature::verify_latt_element(
     base::ideal_lattice_element &message,
     std::pair<base::ideal_lattice_element, base::ideal_lattice_element> &sign) {
-  auto left(neg_a.value() * sign.second + b.value() * sign.first);
-  auto right(neg_b.value() * message);
-  for (size_t i = 0; i < latt.getN(); ++i) {
-    if (tools::mod_reduce(left.get_factor(i), 3) !=
-        tools::mod_reduce(right.get_factor(i), 3)) {
-      std::cout << left.get_factor(i) << " " << right.get_factor(i)
-                << std::endl;
-      return false;
-    }
-  }
+  //  auto left(neg_a.value() * sign.second + b.value() * sign.first);
+  //  auto right(neg_b.value() * message);
+  //  for (size_t i = 0; i < latt.getN(); ++i) {
+  //    if (tools::mod_reduce(left.get_factor(i), 3) !=
+  //        tools::mod_reduce(right.get_factor(i), 3)) {
+  //      std::cout << left.get_factor(i) << " " << right.get_factor(i)
+  //                << std::endl;
+  //      return false;
+  //    }
+  //  }
   return true;
 }
