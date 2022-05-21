@@ -29,12 +29,13 @@ class ideal_lattice {
   bool use_NTT_cache = true;
 
   public:
-  ideal_lattice(ulong n, ulong q, bool use_NTT_cache = true);
+  ideal_lattice(unsigned long n, unsigned long q, bool use_NTT_cache = true);
   ideal_lattice(std::istream &is, bool use_NTT_cache = true);
   tools::element_type_T get_2nth_root_of_unity();
   ideal_lattice_element make_element();
   ideal_lattice_element import_element(std::istream &is);
-  ideal_lattice_element make_element(const std::vector<long> &factor);
+  ideal_lattice_element make_element(const std::vector<long> &factor,
+                                     bool disable_NTT_cache = false);
   ideal_lattice_element make_element_from_NTT(const std::vector<long> &factor);
   std::vector<long> INTT_GS(std::vector<long> a);
   void export_to_stream(std::ostream &os, bool include_psi_cache = false);

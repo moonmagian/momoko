@@ -146,18 +146,18 @@ const std::vector<long> &momoko::base::ideal_lattice_element::NTT_CT() {
   if (NTT_cache.has_value() && use_NTT_cache) {
     return NTT_cache.value();
   }
-  ulong t = n;
+  unsigned long t = n;
   auto phi_list = latt.get_psi_list();
   NTT_cache.emplace(factors);
   std::vector<long> &result = NTT_cache.value();
   result.resize(n, 0);
-  for (ulong m = 1; m < n; m <<= 1) {
+  for (unsigned long m = 1; m < n; m <<= 1) {
     t >>= 1;
-    for (ulong i = 0; i < m; ++i) {
-      ulong j1 = 2 * i * t;
-      ulong j2 = j1 + t - 1;
+    for (unsigned long i = 0; i < m; ++i) {
+      unsigned long j1 = 2 * i * t;
+      unsigned long j2 = j1 + t - 1;
       tools::element_type_T S = phi_list[m + i];
-      for (ulong j = j1; j <= j2; ++j) {
+      for (unsigned long j = j1; j <= j2; ++j) {
         long U = result[j];
         long V = result[j + t] * S;
         result[j] = tools::mod_reduce(U + V, q);

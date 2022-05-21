@@ -62,7 +62,7 @@ inline element_type_T mod_reduce(long i, long q) {
 element_type_T mod_reduce_lazy(long i, long q);
 uint64_t double_frac_to_integer(double d);
 // debug tools.
-void _print_ulong_bit(ulong i);
+void _print_ulong_bit(unsigned long i);
 template <typename T> void _print_vec(std::vector<T> vec) {
   for (const auto &x : vec) {
     std::cout << x << " ";

@@ -1,24 +1,32 @@
 #ifndef BACKGROUND_SAMPLER_LOCKFREE_H
 #define BACKGROUND_SAMPLER_LOCKFREE_H
+#ifdef BOOST_QUEUE_ENABLED
 #include <boost/lockfree/queue.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
-#include <stop_token>
+#else
+#include "lockfree_cache_queue.h"
+#endif
+#include <semaphore>
+#include <atomic>
+#include <thread>
 #include "gaussian_dist_sampler.hpp"
 #include "ideal_lattice_element.hpp"
-#include "lockfree_cache_queue.h"
 namespace momoko::gaussian {
 template <size_t N>
 class background_sampler_lockfree : public gaussian_dist_sampler {
   private:
-  std::counting_semaphore<N> empty{N};
-  //  boost::lockfree::spsc_queue<long, boost::lockfree::capacity<N>> cache;
+  std::counting_semaphore<N - 1> empty{N - 1};
+#ifdef BOOST_QUEUE_ENABLED
+  boost::lockfree::spsc_queue<long, boost::lockfree::capacity<N>> cache;
+#else
   tools::lockfree_cache_queue<long, N> cache;
+#endif
 
   gaussian_dist_sampler &sampler;
-  std::stop_source stop;
+  std::atomic<bool> stop{false};
   std::thread producer_thread;
   void producer() {
-    while (!stop.stop_requested()) {
+    while (!stop.load(std::memory_order_relaxed)) {
       empty.acquire();
       cache.push(sampler.sample_gaussian());
     }
@@ -38,7 +46,7 @@ class background_sampler_lockfree : public gaussian_dist_sampler {
     producer_thread = std::thread{&background_sampler_lockfree::producer, this};
   }
   virtual ~background_sampler_lockfree() {
-    stop.request_stop();
+    stop.store(true, std::memory_order_relaxed);
     empty.release();
     producer_thread.join();
   }

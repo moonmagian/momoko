@@ -9,14 +9,14 @@ long bernoulli_sampler::bin_std_var_halfside_sample() {
     if ((zero_sign & 1) == 0) {
       return 0;
     }
-    ulong i;
+    unsigned long i;
     for (i = 1;; ++i) {
       // Needed bit count.
-      ulong k{2 * i - 1};
+      unsigned long k{2 * i - 1};
       while (k > 0) {
         // Use all bits of the next generated element.
         if (k > sizeof(decltype(rng)::result_type) * 8) {
-          ulong bits{rng()};
+          unsigned long bits{rng()};
           if (bits != 0) {
             // Restart the algorithm.
             goto algorithm_loop;
@@ -24,7 +24,7 @@ long bernoulli_sampler::bin_std_var_halfside_sample() {
           k -= sizeof(decltype(rng)::result_type) * 8;
         } else {
           // Only use part of the generated bits.
-          ulong bits{rng()};
+          unsigned long bits{rng()};
           // 1, 2, 3, ..., k - 1 th bits should be zero, otherwise restart the
           // algorithm.
           if ((bits & ((1ul << (k - 1)) - 1)) != 0) {
@@ -42,7 +42,7 @@ long bernoulli_sampler::bin_std_var_halfside_sample() {
   }
 }
 
-bernoulli_sampler::bernoulli_sampler(ulong k, base::ideal_lattice &latt)
+bernoulli_sampler::bernoulli_sampler(unsigned long k, base::ideal_lattice &latt)
     : gaussian_dist_sampler{latt}, k{k}, udist_0_k{0, k - 1},
       sd{0.8493218002880191 * static_cast<double>(k)} {
   if (k == 0) {

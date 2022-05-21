@@ -17,8 +17,10 @@
 #include <chrono>
 #include <thread>
 #include <fstream>
+#define BGSAMPLE_SIZE 300000
 using namespace std;
 void NTT_test() {
+  std::cout << "Testing NTT multiplication correctness..." << std::endl;
   momoko::base::ideal_lattice latt{512, 12289};
   std::vector<long> factors(512, 0);
   momoko::gaussian::CDT_sampler CDT{1.698644, 9.42, latt};
@@ -32,14 +34,60 @@ void NTT_test() {
       throw std::runtime_error("Error while testing NTT.");
     }
   }
-  std::cout << "[PASS] NTT Correctness." << std::endl;
+  std::cout << "[PASS] NTT Correct." << std::endl;
+}
+void pke_test() {
+  std::cout << "Testing PKE correctness..." << std::endl;
+  momoko::base::ideal_lattice latt{512, 12289};
+  momoko::gaussian::CDT_sampler sampler{3.33, 9.42, latt};
+  momoko::pks::pke pke(latt, sampler);
+  pke.generate_keys();
+  for (int i = 0; i < 1000; ++i) {
+    auto message = pke.make_uniform_element(0, 1);
+    auto enc = pke.encrypt_latt_element(message);
+    auto dec = pke.decrypt_latt_element(enc);
+    if (message != dec) {
+      throw std::runtime_error("Error while testing PKE.");
+    }
+  }
+  std::cout << "[PASS] PKE Correct." << std::endl;
+}
+void blwe_pke_test() {
+  std::cout << "Testing BLWE PKE correctness..." << std::endl;
+  momoko::base::ideal_lattice latt{512, 12289};
+  momoko::pks::pke_blwe pke(latt);
+  pke.generate_keys();
+  for (int i = 0; i < 1000; ++i) {
+    auto message = pke.make_uniform_element(0, 1);
+    auto enc = pke.encrypt_latt_element(message);
+    auto dec = pke.decrypt_latt_element(enc);
+    if (message != dec) {
+      throw std::runtime_error("Error while testing BLWE PKE.");
+    }
+  }
+  std::cout << "[PASS] BLWE PKE Correct." << std::endl;
+}
+void pks_test() {
+  std::cout << "Testing PKS correctness..." << std::endl;
+  momoko::base::ideal_lattice latt{512, 12289};
+  momoko::gaussian::CDT_sampler sampler{3.33, 9.42, latt};
+  momoko::pks::signature pks(latt, sampler);
+  for (int i = 0; i < 1000; ++i) {
+    auto message = pks.make_uniform_element(0, 1);
+    auto sig = pks.sign_latt_element(message);
+    auto verf = pks.verify_latt_element(message, sig);
+    if (verf) {
+      throw std::runtime_error("Error while testing PKS.");
+    }
+  }
+  std::cout << "[PASS] PKS Correct." << std::endl;
 }
 void sampler_test(momoko::gaussian::gaussian_dist_sampler &sampler) {
   int times = 1000000;
   //  int times = 1000;
   double mean = 0;
   double SD = 0;
-  std::map<long, ulong> m;
+  std::map<long, unsigned long> m;
   for (int i = 0; i < times; ++i) {
     long result = sampler.sample_gaussian();
     m[result] += 1;
@@ -61,107 +109,272 @@ void sampler_test(momoko::gaussian::gaussian_dist_sampler &sampler) {
   std::cout << "Desired mean: 0" << std::endl;
   std::cout << "SD: " << SD << std::endl;
   std::cout << "Desired SD: " << sampler.get_std_var() << std::endl;
+  double kl{0};
+  for (const auto &pair : m) {
+    double px = pair.second / static_cast<double>(times);
+    double qx =
+        momoko::tools::discrete_gaussian(pair.first, sampler.get_std_var());
+    kl += px * std::log2(px / qx);
+  }
+  std::cout << "KL Distance: " << kl << std::endl;
 }
-void CDT_save_test(momoko::gaussian::CDT_sampler &sampler,
-                   momoko::base::ideal_lattice &latt) {
-  sampler.export_param("CDT.sampler");
-  momoko::gaussian::CDT_sampler sampler2("CDT.sampler", latt);
-  std::cout << (sampler2 == sampler) << std::endl;
+void pke_benchmark(momoko::base::ideal_lattice &latt,
+                   momoko::gaussian::gaussian_dist_sampler &sampler,
+                   momoko::base::ideal_lattice_element &message) {
+  {
+    momoko::pks::pke pke(latt, sampler);
+    pke.generate_keys();
+    long result = start_benchmark(
+        [&pke, &message](const std::atomic<bool> &token,
+                         std::promise<long> promise) {
+          long result{0};
+          while (!token.load(std::memory_order_relaxed)) {
+            pke.encrypt_latt_element(message);
+            result += 1;
+          }
+          promise.set_value(result);
+        },
+        10000);
+    std::cout << "Encryption(messages/10s): " << result << std::endl;
+  }
+  {
+    momoko::gaussian::background_sampler_lockfree<300000> bg{sampler, latt};
+    momoko::pks::pke pke(latt, bg);
+    pke.generate_keys();
+    long result = start_benchmark(
+        [&pke, &message](const std::atomic<bool> &token,
+                         std::promise<long> promise) {
+          long result{0};
+          while (!token.load(std::memory_order_relaxed)) {
+            pke.encrypt_latt_element(message);
+            result += 1;
+          }
+          promise.set_value(result);
+        },
+        10000);
+    std::cout << "Encryption-background(messages/10s): " << result << std::endl;
+  }
+  {
+    momoko::gaussian::background_sampler_lockfree<300000> bg{sampler, latt};
+    momoko::pks::pke pke(latt, bg);
+    pke.generate_keys();
+    this_thread::sleep_for(std::chrono::seconds(10));
+    long result = start_benchmark(
+        [&pke, &message](const std::atomic<bool> &token,
+                         std::promise<long> promise) {
+          long result{0};
+          while (!token.load(std::memory_order_relaxed)) {
+            pke.encrypt_latt_element(message);
+            result += 1;
+          }
+          promise.set_value(result);
+        },
+        100);
+    std::cout << "Encryption-background-cache-ready(messages/10s): "
+              << result * 100 << std::endl;
+  }
+  {
+    momoko::pks::pke pke(latt, sampler);
+    pke.generate_keys();
+    auto cipher = std::make_pair(pke.make_uniform_element(0, 12288, true),
+                                 pke.make_uniform_element(0, 12288, true));
+    long result = start_benchmark(
+        [&pke, &cipher](const std::atomic<bool> &token,
+                        std::promise<long> promise) {
+          long result{0};
+          while (!token.load(std::memory_order_relaxed)) {
+            pke.decrypt_latt_element(cipher);
+            result += 1;
+          }
+          promise.set_value(result);
+        },
+        10000);
+    std::cout << "Decryption(messages/10s): " << result << std::endl;
+  }
 }
-void bit_matrix_test() {
-  momoko::tools::bit_matrix mat;
-  mat.push(0.2);
-  mat.push(0.35);
-  mat.push(0.33);
-  mat.complete();
-  std::cout << mat << std::endl;
+void blwe_benchmark(momoko::base::ideal_lattice &latt,
+                    momoko::base::ideal_lattice_element &message) {
+  {
+    momoko::pks::pke_blwe pke(latt);
+    pke.generate_keys();
+    long result = start_benchmark(
+        [&pke, &message](const std::atomic<bool> &token,
+                         std::promise<long> promise) {
+          long result{0};
+          while (!token.load(std::memory_order_relaxed)) {
+            pke.encrypt_latt_element(message);
+            result += 1;
+          }
+          promise.set_value(result);
+        },
+        10000);
+    std::cout << "Encryption(messages/10s): " << result << std::endl;
+  }
+  {
+    momoko::pks::pke_blwe pke(latt);
+    pke.generate_keys();
+    auto cipher = std::make_pair(pke.make_uniform_element(0, 12288, true),
+                                 pke.make_uniform_element(0, 12288, true));
+    long result = start_benchmark(
+        [&pke, &cipher](const std::atomic<bool> &token,
+                        std::promise<long> promise) {
+          long result{0};
+          while (!token.load(std::memory_order_relaxed)) {
+            pke.decrypt_latt_element(cipher);
+            result += 1;
+          }
+          promise.set_value(result);
+        },
+        10000);
+    std::cout << "Decryption(messages/10s): " << result << std::endl;
+  }
 }
-void pke_benchmark() {
-  momoko::base::ideal_lattice latt{512, 12289};
-  momoko::gaussian::CDT_sampler CDT{4.85, 9.42, latt};
-  momoko::gaussian::background_sampler_lockfree<300000> bg{CDT, latt};
-  momoko::pks::pke pke(latt, bg);
-  pke.generate_keys();
+void pks_benchmark(momoko::base::ideal_lattice &latt,
+                   momoko::gaussian::gaussian_dist_sampler &sampler,
+                   momoko::base::ideal_lattice_element &message) {
+
+  {
+    momoko::pks::signature pks(latt, sampler);
+    long result = start_benchmark(
+        [&pks, &message](const std::atomic<bool> &token,
+                         std::promise<long> promise) {
+          long result{0};
+          while (!token.load(std::memory_order_relaxed)) {
+            pks.sign_latt_element(message);
+            result += 1;
+          }
+          promise.set_value(result);
+        },
+        10000);
+    std::cout << "Signing(messages/10s): " << result << std::endl;
+  }
+  {
+    momoko::gaussian::background_sampler_lockfree<300000> bg{sampler, latt};
+    momoko::pks::signature pks(latt, sampler);
+    long result = start_benchmark(
+        [&pks, &message](const std::atomic<bool> &token,
+                         std::promise<long> promise) {
+          long result{0};
+          while (!token.load(std::memory_order_relaxed)) {
+            pks.sign_latt_element(message);
+            result += 1;
+          }
+          promise.set_value(result);
+        },
+        10000);
+    std::cout << "Signing-background(messages/10s): " << result << std::endl;
+  }
+  {
+    momoko::gaussian::background_sampler_lockfree<300000> bg{sampler, latt};
+    momoko::pks::signature pks(latt, sampler);
+    this_thread::sleep_for(std::chrono::seconds(10));
+    long result = start_benchmark(
+        [&pks, &message](const std::atomic<bool> &token,
+                         std::promise<long> promise) {
+          long result{0};
+          while (!token.load(std::memory_order_relaxed)) {
+            pks.sign_latt_element(message);
+            result += 1;
+          }
+          promise.set_value(result);
+        },
+        100);
+    std::cout << "Signing-cache-ready(messages/10s): " << result * 100
+              << std::endl;
+  }
+  {
+    momoko::pks::signature pks(latt, sampler);
+    auto sign = std::make_pair(pks.make_uniform_element(0, 12288, true),
+                               pks.make_uniform_element(0, 12288, true));
+    long result = start_benchmark(
+        [&pks, &sign, &message](const std::atomic<bool> &token,
+                                std::promise<long> promise) {
+          long result{0};
+          while (!token.load(std::memory_order_relaxed)) {
+            pks.verify_latt_element(message, sign);
+            result += 1;
+          }
+          promise.set_value(result);
+        },
+        10000);
+    std::cout << "Verifing(messages/10s): " << result << std::endl;
+  }
+}
+void NTT_benchmark(momoko::pks::pksystem &system) {
+  {
+    auto a = system.make_uniform_element(0, 12288, true);
+    auto b = system.make_uniform_element(0, 12288, true);
+    long result = start_benchmark(
+        [&a, &b](const std::atomic<bool> &token, std::promise<long> promise) {
+          long result{0};
+          while (!token.load(std::memory_order_relaxed)) {
+            auto c = a * b;
+            result += 1;
+          }
+          promise.set_value(result);
+        },
+        1000);
+    std::cout << "multplication per second(no cache): " << result << std::endl;
+  }
+  {
+    auto a = system.make_uniform_element(0, 12288, false);
+    auto b = system.make_uniform_element(0, 12288, true);
+    long result = start_benchmark(
+        [&a, &b](const std::atomic<bool> &token, std::promise<long> promise) {
+          long result{0};
+          while (!token.load(std::memory_order_relaxed)) {
+            auto c = a * b;
+            result += 1;
+          }
+          promise.set_value(result);
+        },
+        1000);
+    std::cout << "multplication per second(one element cached): "
+              << result + 3000 << std::endl;
+  }
+  {
+    auto a = system.make_uniform_element(0, 12288);
+    auto b = system.make_uniform_element(0, 12288);
+    long result = start_benchmark(
+        [&a, &b](const std::atomic<bool> &token, std::promise<long> promise) {
+          long result{0};
+          while (!token.load(std::memory_order_relaxed)) {
+            auto c = a * b;
+            result += 1;
+          }
+          promise.set_value(result);
+        },
+        1000);
+    std::cout << "multplication per second(two element cached): " << result
+              << std::endl;
+  }
+}
+void gaussian_benchmark(momoko::base::ideal_lattice &latt,
+                        momoko::gaussian::gaussian_dist_sampler &sampler) {
   long result = start_benchmark(
-      [&pke, &latt](std::stop_token token, std::promise<long> promise) {
+      [&sampler](const std::atomic<bool> &token, std::promise<long> promise) {
         long result{0};
-        while (!token.stop_requested()) {
-          pke.encrypt_latt_element(latt.make_element({1, 1, 1, 0, 1, 1, 0, 1}));
-          //          pke.decrypt_latt_element(
-          //              std::make_pair(latt.make_element({1, 1, 1, 0, 1, 1, 0,
-          //              1}),
-          //                             latt.make_element({1, 1, 0})));
+        while (!token.load(std::memory_order_relaxed)) {
+          sampler.sample_gaussian();
           result += 1;
         }
         promise.set_value(result);
       },
-      10);
-  std::cout << result << std::endl;
-}
-void pke_test_and_benchmark(bool warmup = true) {
-  momoko::base::ideal_lattice latt{512, 12289};
-  momoko::gaussian::CDT_sampler CDT{4.85, 9.42, latt};
-  //  momoko::gaussian::knuth_yao_sampler knuth_yao{1.698644, 9.42, latt};
-  //  momoko::gaussian::background_sampler_lockfree<50000> bg{CDT, latt};
-  momoko::gaussian::background_sampler_lockfree<300000> bg{CDT, latt};
-  momoko::pks::pke pke(latt, bg);
-  //  momoko::pks::pke pke2(latt, CDT);
-  momoko::pks::pke_blwe pke2(latt);
-  pke.generate_keys();
-  pke2.generate_keys();
-  if (warmup) {
-    this_thread::sleep_for(std::chrono::seconds(10));
-  }
-  auto start = chrono::high_resolution_clock::now();
-  for (long i = 0; i < 300; ++i) {
-    auto r =
-        pke.encrypt_latt_element(latt.make_element({1, 1, 1, 0, 1, 1, 0, 1}));
-  }
-  auto end = chrono::high_resolution_clock::now();
-  std::cout << "[background sampling] Randomly encrypt 150 kbits(μs):"
-            << chrono::duration_cast<chrono::microseconds>(end - start).count()
-            << std::endl;
-  start = chrono::high_resolution_clock::now();
-  for (long i = 0; i < 300; ++i) {
-    auto r =
-        pke2.encrypt_latt_element(latt.make_element({1, 1, 1, 0, 1, 1, 0, 1}));
-    //    auto result = pke2.decrypt_latt_element(r);
-    //    std::cout << result << std::endl;
-  }
-  end = chrono::high_resolution_clock::now();
-  std::cout << "[normal samping] Randomly encrypt 150 kbits(μs):"
-            << chrono::duration_cast<chrono::microseconds>(end - start).count()
-            << std::endl;
-}
-void NTT_benchmark() {
-  momoko::base::ideal_lattice latt_NTT_cache{512, 12289, true};
-  momoko::base::ideal_lattice latt{512, 12289, false};
+      1000);
+  std::cout << "Samples per second: " << result << std::endl;
 
-  momoko::gaussian::CDT_sampler CDT_NTT_cache{4.85, 9.42, latt_NTT_cache};
-  momoko::pks::pke pke_NTT_cache(latt_NTT_cache, CDT_NTT_cache);
-
-  momoko::gaussian::CDT_sampler CDT{4.85, 9.42, latt};
-  momoko::pks::pke pke(latt, CDT);
-
-  pke.generate_keys();
-  pke_NTT_cache.generate_keys();
-  auto start = chrono::high_resolution_clock::now();
-  for (long i = 0; i < 300; ++i) {
-    auto r =
-        pke.encrypt_latt_element(latt.make_element({1, 1, 1, 0, 1, 1, 0, 1}));
-  }
-  auto end = chrono::high_resolution_clock::now();
-  std::cout << "[No NTT cache and lazy modular] Randomly encrypt 150 kbits(μs):"
-            << chrono::duration_cast<chrono::microseconds>(end - start).count()
-            << std::endl;
-  start = chrono::high_resolution_clock::now();
-  for (long i = 0; i < 300; ++i) {
-    auto r = pke_NTT_cache.encrypt_latt_element(
-        latt.make_element({1, 1, 1, 0, 1, 1, 0, 1}));
-  }
-  end = chrono::high_resolution_clock::now();
-  std::cout << "[NTT cache + lazy modular] Randomly encrypt 150 kbits(μs):"
-            << chrono::duration_cast<chrono::microseconds>(end - start).count()
+  momoko::gaussian::background_sampler_lockfree<300000> bg(sampler, latt);
+  result = start_benchmark(
+      [&bg](const std::atomic<bool> &token, std::promise<long> promise) {
+        long result{0};
+        while (!token.load(std::memory_order_relaxed)) {
+          bg.sample_gaussian();
+          result += 1;
+        }
+        promise.set_value(result);
+      },
+      1000);
+  std::cout << "Samples per second(with background sampler): " << result
             << std::endl;
 }
 void sign_test() {
@@ -190,36 +403,34 @@ void latt_export_test() {
   std::cout << element2 << std::endl;
 }
 int main() {
-  //  latt_export_test();
-  //  NTT_test();
   momoko::base::ideal_lattice latt{512, 12289};
-  momoko::gaussian::CDT_sampler CDT{1.698644, 9.42, latt};
-  //  auto element = latt.make_element({1, 1, 4, 5, 1, 4});
-  //  std::ofstream ofs{"out.element"};
-  //  std::ofstream ofs_latt{"out.latt"};
-  //  element.export_to_stream(ofs);
-  //  latt.export_to_stream(ofs_latt, true);
-  momoko::gaussian::background_sampler_lockfree<10000> bg{CDT, latt};
-  sampler_test(bg);
-  //  momoko::gaussian::bernoulli_sampler bernoulli{2, latt};
-  //  momoko::gaussian::knuth_yao_sampler knuth_yao{1.698644, 9.42, latt};
-  //  std::cout << "Sampler shape test:" << std::endl;
-  //  sampler_test(CDT);
-  //  std::cout << std::endl;
-  //  sampler_test(bernoulli);
-  //  sampler_test(knuth_yao);
-  //  CDT_save_test(CDT, latt);
-  //  bit_matrix_test();
-  //  knuth_yao._check_carry();
-  //  std::cout << "background sampling test (with warm up):" << std::endl;
-  //  pke_test_and_benchmark(true);
-  //  std::cout << std::endl;
-  //  std::cout << "background sampling test (without warm up):" << std::endl;
-  //  pke_test_and_benchmark(false);
-  //  pke_benchmark();
-  //  std::cout << std::endl;
-  //  std::cout << "NTT cache and lazy modular test:" << std::endl;
-  //  NTT_benchmark();
-  //  sign_test();
+  //  {
+  //    momoko::gaussian::CDT_sampler CDT{1.69, 9.42, latt};
+  //    sampler_test(CDT);
+  //    NTT_test();
+  //    pke_test();
+  //    blwe_pke_test();
+  //    pks_test();
+  //  }
+  {
+    momoko::gaussian::CDT_sampler CDT{3.33, 9.42, latt};
+    momoko::gaussian::bernoulli_sampler bernoulli{4, latt};
+    momoko::gaussian::knuth_yao_sampler knuth_yao{3.33, 9.42, latt};
+    momoko::pks::pke pke(latt, CDT);
+    auto message = pke.make_uniform_element(0, 1, true);
+    NTT_benchmark(pke);
+    std::cout << "CDT benchmark:" << std::endl;
+    gaussian_benchmark(latt, CDT);
+    std::cout << "Bernoulli benchmark:" << std::endl;
+    gaussian_benchmark(latt, bernoulli);
+    std::cout << "Knuth-Yao benchmark:" << std::endl;
+    gaussian_benchmark(latt, knuth_yao);
+    std::cout << "PKE Benchmark:" << std::endl;
+    pke_benchmark(latt, CDT, message);
+    std::cout << "PKS Benchmark:" << std::endl;
+    pks_benchmark(latt, CDT, message);
+    std::cout << "BRLWE PKE Benchmark:" << std::endl;
+    blwe_benchmark(latt, message);
+  }
   return 0;
 }

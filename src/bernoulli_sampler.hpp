@@ -5,14 +5,14 @@
 namespace momoko::gaussian {
 class bernoulli_sampler : public gaussian_dist_sampler {
 private:
-  ulong k;
+  unsigned long k;
   long bin_std_var_halfside_sample();
-  std::uniform_int_distribution<ulong> udist_0_k;
-  std::map<std::pair<ulong, ulong>, double> exp_cache;
+  std::uniform_int_distribution<unsigned long> udist_0_k;
+  std::map<std::pair<unsigned long, unsigned long>, double> exp_cache;
 
 public:
   const double sd;
-  bernoulli_sampler(ulong k, base::ideal_lattice &latt);
+  bernoulli_sampler(unsigned long k, base::ideal_lattice &latt);
   double get_std_var() override;
   double get_tail() override;
 

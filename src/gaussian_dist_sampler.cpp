@@ -25,7 +25,7 @@ gaussian_dist_sampler::sample_lattice_element(bool pos_only) {
   std::vector<long> result(n);
   // Sum of a gaussian dist is also a gaussian dist.
   // In correct embedding, every axis is independent.
-  for (ulong i = 0; i < n; ++i) {
+  for (unsigned long i = 0; i < n; ++i) {
     long r{sample_gaussian()};
     if (pos_only && r < 0) {
       r = -r;

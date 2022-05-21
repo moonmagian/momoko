@@ -5,7 +5,8 @@
 #include <iostream>
 #include <stdexcept>
 momoko::tools::element_type_T
-momoko::tools::mod_pow(momoko::tools::element_type_T a, ulong b, ulong p) {
+momoko::tools::mod_pow(momoko::tools::element_type_T a, unsigned long b,
+                       unsigned long p) {
   element_type_T res = 1;
   while (b)
     if (b & 1) {

@@ -3,7 +3,8 @@
 #include <type_traits>
 namespace momoko {
 namespace base {
-ideal_lattice::ideal_lattice(ulong n, ulong q, bool use_NTT_cache)
+ideal_lattice::ideal_lattice(unsigned long n, unsigned long q,
+                             bool use_NTT_cache)
     : n{n}, q(q), n_inv(tools::mod_inv(n, q)), use_NTT_cache{use_NTT_cache} {}
 
 ideal_lattice::ideal_lattice(std::istream &is, bool use_NTT_cache)
@@ -44,7 +45,7 @@ tools::element_type_T ideal_lattice::get_2nth_root_of_unity() {
     return psi.value();
   }
   auto x = tools::fatorize(2 * n);
-  ulong res{};
+  unsigned long res{};
   bool ok{};
   for (res = 2; res < q; ++res) {
     if (tools::mod_pow(res, 2 * n, q) != 1) {
@@ -98,7 +99,11 @@ ideal_lattice_element ideal_lattice::import_element(std::istream &is) {
 }
 
 ideal_lattice_element
-ideal_lattice::make_element(const std::vector<long> &factor) {
+ideal_lattice::make_element(const std::vector<long> &factor,
+                            bool disable_NTT_cache) {
+  if (disable_NTT_cache) {
+    return ideal_lattice_element{*this, factor, false};
+  }
   return ideal_lattice_element{*this, factor, use_NTT_cache};
 }
 
@@ -110,14 +115,14 @@ ideal_lattice::make_element_from_NTT(const std::vector<long> &ntt) {
 std::vector<long> ideal_lattice::INTT_GS(std::vector<long> a) {
   auto inv_list = get_psi_inv_list();
   a.resize(n, 0);
-  ulong t = 1;
-  for (ulong m = n; m > 1; m >>= 1) {
-    ulong j1 = 0;
-    ulong h = m >> 1;
-    for (ulong i = 0; i < h; ++i) {
-      ulong j2 = j1 + t - 1;
+  unsigned long t = 1;
+  for (unsigned long m = n; m > 1; m >>= 1) {
+    unsigned long j1 = 0;
+    unsigned long h = m >> 1;
+    for (unsigned long i = 0; i < h; ++i) {
+      unsigned long j2 = j1 + t - 1;
       long S = inv_list[h + i];
-      for (ulong j = j1; j <= j2; ++j) {
+      for (unsigned long j = j1; j <= j2; ++j) {
         long U = a[j];
         long V = a[j + t];
         //                a[j] = tools::mod_reduce(U + V, q);
@@ -129,7 +134,7 @@ std::vector<long> ideal_lattice::INTT_GS(std::vector<long> a) {
     }
     t <<= 1;
   }
-  for (ulong j = 0; j < n; ++j) {
+  for (unsigned long j = 0; j < n; ++j) {
     a[j] = tools::mod_reduce(a[j] * n_inv, q);
   }
   return a;

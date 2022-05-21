@@ -2,16 +2,17 @@
 #define BENCHMARK_COUNTER_H
 #include <future>
 #include <thread>
-using stopable_callable = void (*)(std::stop_token token,
+#include <atomic>
+using stopable_callable = void (*)(std::atomic<bool> token,
                                    std::promise<long> promise);
 
-template <typename T> long start_benchmark(T callable, int sec) {
-  std::stop_source should_stop;
+template <typename T> long start_benchmark(T callable, int milliseconds) {
+  std::atomic<bool> should_stop;
   std::promise<long> promise;
   std::future<long> future{promise.get_future()};
-  std::thread t(callable, should_stop.get_token(), std::move(promise));
-  std::this_thread::sleep_for(std::chrono::seconds(sec));
-  should_stop.request_stop();
+  std::thread t(callable, std::ref(should_stop), std::move(promise));
+  std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+  should_stop.store(true, std::memory_order_relaxed);
   t.join();
   return future.get();
 }

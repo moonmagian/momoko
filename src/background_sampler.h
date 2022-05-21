@@ -2,7 +2,7 @@
 #define BACKGROUND_SAMPLER_H
 #include "gaussian_dist_sampler.hpp"
 #include <semaphore>
-#include <stop_token>
+#include <atomic>
 #include <deque>
 #include <thread>
 #include <mutex>
@@ -15,14 +15,14 @@ class background_sampler : public gaussian_dist_sampler {
   std::counting_semaphore<N> empty{N};
   gaussian_dist_sampler &sampler;
   std::deque<long> cache;
-  std::stop_source stop;
+  std::atomic<bool> stop{false};
   std::thread producer_thread;
   std::mutex mutex;
   void producer() {
     while (true) {
       // Block until the producer can read the value.
       empty.acquire();
-      if (stop.stop_requested()) {
+      if (stop.load(std::memory_order_relaxed)) {
         break;
       }
       std::unique_lock lock(mutex);
@@ -47,7 +47,7 @@ class background_sampler : public gaussian_dist_sampler {
     producer_thread = std::thread{&background_sampler::producer, this};
   }
   virtual ~background_sampler() {
-    stop.request_stop();
+    stop.store(true, std::memory_order_relaxed);
     if (current.try_acquire()) {
       empty.release();
     }
