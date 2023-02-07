@@ -25,7 +25,6 @@ void NTT_test() {
   std::vector<long> factors(512, 0);
   momoko::gaussian::CDT_sampler CDT{1.698644, 9.42, latt};
   for (int i = 0; i < 1000; ++i) {
-
     auto element1 = CDT.sample_lattice_element();
     auto element2 = CDT.sample_lattice_element();
     auto r1 = element1 * element2;
@@ -329,8 +328,8 @@ void NTT_benchmark(momoko::pks::pksystem &system) {
           promise.set_value(result);
         },
         1000);
-    std::cout << "multplication per second(one element cached): "
-              << result + 3000 << std::endl;
+    std::cout << "multplication per second(one element cached): " << result
+              << std::endl;
   }
   {
     auto a = system.make_uniform_element(0, 12288);
@@ -405,32 +404,32 @@ void latt_export_test() {
 int main() {
   momoko::base::ideal_lattice latt{512, 12289};
   //  {
-  //    momoko::gaussian::CDT_sampler CDT{1.69, 9.42, latt};
-  //    sampler_test(CDT);
-  //    NTT_test();
-  //    pke_test();
-  //    blwe_pke_test();
-  //    pks_test();
+  momoko::gaussian::CDT_sampler CDT{1.69, 9.42, latt};
+  sampler_test(CDT);
+  NTT_test();
+  pke_test();
+  blwe_pke_test();
+  pks_test();
   //  }
-  {
-    momoko::gaussian::CDT_sampler CDT{3.33, 9.42, latt};
-    momoko::gaussian::bernoulli_sampler bernoulli{4, latt};
-    momoko::gaussian::knuth_yao_sampler knuth_yao{3.33, 9.42, latt};
-    momoko::pks::pke pke(latt, CDT);
-    auto message = pke.make_uniform_element(0, 1, true);
-    NTT_benchmark(pke);
-    std::cout << "CDT benchmark:" << std::endl;
-    gaussian_benchmark(latt, CDT);
-    std::cout << "Bernoulli benchmark:" << std::endl;
-    gaussian_benchmark(latt, bernoulli);
-    std::cout << "Knuth-Yao benchmark:" << std::endl;
-    gaussian_benchmark(latt, knuth_yao);
-    std::cout << "PKE Benchmark:" << std::endl;
-    pke_benchmark(latt, CDT, message);
-    std::cout << "PKS Benchmark:" << std::endl;
-    pks_benchmark(latt, CDT, message);
-    std::cout << "BRLWE PKE Benchmark:" << std::endl;
-    blwe_benchmark(latt, message);
-  }
+  //  {
+  //    momoko::gaussian::CDT_sampler CDT{3.33, 9.42, latt};
+  //    momoko::gaussian::bernoulli_sampler bernoulli{4, latt};
+  //    momoko::gaussian::knuth_yao_sampler knuth_yao{3.33, 9.42, latt};
+  momoko::pks::pke pke(latt, CDT);
+  auto message = pke.make_uniform_element(0, 1, true);
+  NTT_benchmark(pke);
+  //    std::cout << "CDT benchmark:" << std::endl;
+  //    gaussian_benchmark(latt, CDT);
+  //    std::cout << "Bernoulli benchmark:" << std::endl;
+  //    gaussian_benchmark(latt, bernoulli);
+  //    std::cout << "Knuth-Yao benchmark:" << std::endl;
+  //    gaussian_benchmark(latt, knuth_yao);
+  //    std::cout << "PKE Benchmark:" << std::endl;
+  //    pke_benchmark(latt, CDT, message);
+  //    std::cout << "PKS Benchmark:" << std::endl;
+  //    pks_benchmark(latt, CDT, message);
+  //    std::cout << "BRLWE PKE Benchmark:" << std::endl;
+  //    blwe_benchmark(latt, message);
+  //  }
   return 0;
 }
